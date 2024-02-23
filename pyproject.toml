@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-name"
+authors = [{ name = "author name", email = "author@email.com" }]
+description = "Project description"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+# Main dependencies, use this to include everything that the project needs to run in production.
+# Depending on the use case, you can adopt a strict or loose versioning policy.
+# e.g.:
+# using strict versioning
+# "requests == 2.25.0",
+# using loose versioning
+# "requests >= 2.25.0, < 3.0.0",
+# using extras
+# "uvicorn[standard] >= 0.15.0, < 0.16.0",
+# using specific urls
+# "torch @ https://download.pytorch.org/whl/cu117/torch-2.0.1%2Bcu117-cp310-cp310-linux_x86_64.whl",
+# "torchvision @ https://download.pytorch.org/whl/cu117/torchvision-0.15.2%2Bcu117-cp310-cp310-linux_x86_64.whl",
+dependencies = []
+
+# Dynamic metadata allow to assign the version number to the package at build time.
+# The location of the version number is specified in the [tool.setuptools.dynamic] section.
+dynamic = ["version"]
+
+# Optional dependencies, use this to include everything that the project needs to run in development.
+# These can be installed by specifying for instance `pip install -e .[dev|docs|test]`
+# Here the loose versioning policy is usually preferred.
+[project.optional-dependencies]
+# Add development dependencies here
+dev = [
+    "black >= 23.0.0, < 24",
+    "isort >= 5.1.0, < 6.0.0",
+    "gitchangelog >= 3.0.4, < 4.0.0",
+    "ruff >= 0.0.1, < 0.1.0",
+]
+# Add documentation dependencies here
+docs = [
+    "mkdocs-material >= 9.2.0, < 10",
+    "mdx-include >= 1.4.0, < 2",
+]
+# Add testing dependencies here
+test = [
+    "coverage >= 7.3.0, < 8",
+    "pytest >= 7.4.0, < 8",
+    "pytest-cov >= 4.1.0, < 5",
+]
+
+# Uncomment this section if you intend to use the package as a CLI.
+# Using the __main__.py file, the package is already executable with `python -m package_name`.
+# However, the following section allows a nicer invocation using the `package_name` command directly.
+# [project.scripts]
+# package_name = "package_name.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.dynamic]
+version = { attr = "package_name.__version__" }
+
+[tool.black]
+line-length = 119
+
+[tool.ruff]
+line-length = 119
+src = ["src"]
+select = ["E", "F", "UP"]
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
