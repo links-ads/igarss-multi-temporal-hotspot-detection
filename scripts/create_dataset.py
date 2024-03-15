@@ -74,15 +74,24 @@ def extract_pixels_from_xarray(
     coordinates of negative points: np.ndarray
     """
 
-    minx = event_geometry.bounds["minx"].values[0]
-    miny = event_geometry.bounds["miny"].values[0]
-    maxx = event_geometry.bounds["maxx"].values[0]
-    maxy = event_geometry.bounds["maxy"].values[0]
-
-    correct_points_mask = data.where((data.x_geostationary >= minx)
-                                     & (data.x_geostationary <= maxx)
-                                     & (data.y_geostationary >= miny)
-                                     & (data.y_geostationary <= maxy))
+    minx, miny, maxx, maxy = event_geometry.bounds
+    # in the xarray x and y are swapped
+    point_min = data.sel(x_geostationary=miny,
+                         y_geostationary=minx,
+                         method="nearest")
+    point_max = data.sel(x_geostationary=maxy,
+                         y_geostationary=maxx,
+                         method="nearest")
+    # IF THE GEOM IS TOO SMALL, ONLY 1 PIXEL IS SELECTED
+    if point_min.x_geostationary.values == point_max.x_geostationary.values and point_min.y_geostationary.values == point_max.y_geostationary.values:
+        correct_points_mask = data.where(
+            (data.x_geostationary == point_min.x_geostationary.values)
+            & (data.y_geostationary == point_min.y_geostationary.values))
+    else:
+        correct_points_mask = data.where((data.x_geostationary >= minx)
+                                         & (data.x_geostationary <= maxx)
+                                         & (data.y_geostationary >= miny)
+                                         & (data.y_geostationary <= maxy))
     # create a mask where nan is false and true otherwse
     mask = correct_points_mask.notnull().to_array().to_numpy()
     data_np = data.to_array().to_numpy()
@@ -125,9 +134,17 @@ def extract_pixels_from_xarray(
     indexes_y_neg = indexes_neg[2]
 
     points_neg = np.array([x[indexes_x_neg], y[indexes_y_neg]]).T
-
-    return data_np[mask_pos], data_np[
-        mask_neg], mask_pos, mask_neg, data_np, points_pos, points_neg
+    time = len(data["time"])
+    num_points = round(mask.sum() / time / 11)
+    num_points_neg = round(mask_neg.sum() / time / 11)
+    return data_np[mask_pos].reshape(
+        time, num_points, 11), data_np[mask_neg].reshape(
+            time, num_points_neg,
+            11), mask_pos, mask_neg, data_np, points_pos.reshape(
+                time, num_points, 11,
+                2)[0, :, 0, :], points_neg.reshape(time, num_points_neg, 11,
+                                                   2)[0, :,
+                                                      0, :], data.time.values
 
 
 def read_timeseries_xarray(folder: Path):
@@ -136,6 +153,33 @@ def read_timeseries_xarray(folder: Path):
 
 def read_single_xarray(file: Path):
     return xarray.open_dataset(file)
+
+
+def store_points_data(data_array, coords, pixel_class, event_id, timestamps):
+    data_df = []
+    idx = 0
+    for timeseries_data, point in zip(data_array, coords):
+        x, y = point
+        for idx, data in enumerate(timeseries_data):
+            data_df.append({
+                "x": x,
+                "y": y,
+                "class": pixel_class,
+                "event_id": event_id,
+                'IR_016': data[0],
+                'IR_039': data[1],
+                'IR_087': data[2],
+                'IR_097': data[3],
+                'IR_108': data[4],
+                'IR_120': data[5],
+                'IR_134': data[6],
+                'VIS006': data[7],
+                'VIS008': data[8],
+                'WV_062': data[9],
+                'WV_073': data[10],
+                "time": timestamps[idx]
+            })
+    return data_df
 
 
 def main():
@@ -149,11 +193,12 @@ def main():
 
     events_id = events_df["id"].unique()
     # load data
-    pixels_df = gpd.GeoDataFrame(columns=[
-        'x', 'y', 'class', 'event_id', 'IR_016', 'IR_039', 'IR_087', 'IR_097',
-        'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'
-    ])
-    df_id = 0
+    # pixels_df = gpd.GeoDataFrame(columns=[
+    #     'x', 'y', 'class', 'event_id', 'IR_016', 'IR_039', 'IR_087', 'IR_097',
+    #     'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'
+    # ])
+
+    data_df = []
 
     for event in tqdm(events_id):
         folder = args.data_path / str(
@@ -164,25 +209,73 @@ def main():
         print(f"Processing event {event}")
         data = read_timeseries_xarray(folder)
         event_geometry = events_df[events_df["id"] == event].geometry
-        data = extract_pixels_from_xarray(data, event_geometry, args.margin)
-        positive_data, negative_data, positive_mask, negative_mask, data_np, positive_coords, negative_coords = data
+        data = extract_pixels_from_xarray(data,
+                                          event_geometry.geometry.values[0],
+                                          args.margin)
+
+        positive_data, negative_data, positive_mask, negative_mask, data_np, positive_coords, negative_coords, timestamps = data
 
         # save positive data
+        # TODO: rivedere il ciclo
+        # positive_data shape 192, 1 ( numpoints) ,11 e positive_coords shape 192, 1 (numpoints), 11 (perchè? non dovrebbe esserci), 2
+        positive_data = np.transpose(positive_data, (1, 0, 2))
+        negative_data = np.transpose(negative_data, (1, 0, 2))
 
-        for bands, point in zip(positive_data, positive_coords):
-            x, y = point
-            pixel_class = 1
+        data_df.extend(
+            store_points_data(positive_data, positive_coords, 1, event,
+                              timestamps))
+        data_df.extend(
+            store_points_data(negative_data, negative_coords, 0, event,
+                              timestamps))
+        # for timeseries_data, point in zip(positive_data, positive_coords):
+        #     x, y = point
+        #     pixel_class = 1
+        #     for idx, data in enumerate(timeseries_data):
+        #         data_df.append({
+        #             "x": x,
+        #             "y": y,
+        #             "class": pixel_class,
+        #             "event_id": event,
+        #             'IR_016': data[0],
+        #             'IR_039': data[1],
+        #             'IR_087': data[2],
+        #             'IR_097': data[3],
+        #             'IR_108': data[4],
+        #             'IR_120': data[5],
+        #             'IR_134': data[6],
+        #             'VIS006': data[7],
+        #             'VIS008': data[8],
+        #             'WV_062': data[9],
+        #             'WV_073': data[10],
+        #             "time": timestamps[idx]
+        #         })
 
-            pixels_df[df_id] = [x, y, pixel_class, event] + [b for b in bands]
+        # # save negative data
 
-        # save negative data
+        # for timeseries_data, point in zip(positive_data, positive_coords):
+        #     x, y = point
+        #     pixel_class = 0
+        #     for idx, data in enumerate(timeseries_data):
+        #         data_df.append({
+        #             "x": x,
+        #             "y": y,
+        #             "class": pixel_class,
+        #             "event_id": event,
+        #             'IR_016': data[0],
+        #             'IR_039': data[1],
+        #             'IR_087': data[2],
+        #             'IR_097': data[3],
+        #             'IR_108': data[4],
+        #             'IR_120': data[5],
+        #             'IR_134': data[6],
+        #             'VIS006': data[7],
+        #             'VIS008': data[8],
+        #             'WV_062': data[9],
+        #             'WV_073': data[10],
+        #             "time": timestamps[idx]
+        #         })
 
-        for bands, point in zip(negative_data, negative_coords):
-            x, y = point
-            pixel_class = 0
-
-            pixels_df[df_id] = [x, y, pixel_class, event] + [b for b in bands]
-
+        pixels_df = gpd.GeoDataFrame(data_df)
         pixels_df.to_csv(args.output_path / args.output_name, index=False)
 
 
