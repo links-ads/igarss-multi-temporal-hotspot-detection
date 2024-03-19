@@ -36,10 +36,6 @@ def parse_args():
                         type=Path,
                         default='data',
                         help='Path to the output folder')
-    parser.add_argument('--output_name',
-                        type=Path,
-                        default='dataset.csv',
-                        help='Name of the output csv file')
     parser.add_argument('--event_file',
                         type=Path,
                         help='Path to the  events file')
@@ -48,7 +44,6 @@ def parse_args():
         type=int,
         default=1,
         help='Margin to add to the pixels selection of the events')
-    parser.add_argument("--store_bands", action="store_true")
     return parser.parse_args()
 
 
@@ -127,6 +122,12 @@ def extract_pixels_from_xarray(
     x = data.x_geostationary.values
     y = data.y_geostationary.values
 
+    # recompute because sometimes mask misses some values. Who knows why
+    indexes = np.where(mask_pos)
+
+    indexes_x = indexes[3]
+    indexes_y = indexes[2]
+
     points_pos = np.array([x[indexes_x], y[indexes_y]]).T
 
     indexes_neg = np.where(mask_neg)
@@ -156,43 +157,29 @@ def read_single_xarray(file: Path):
     return xarray.open_dataset(file)
 
 
-def store_points_data(data_array,
-                      coords,
-                      pixel_class,
-                      event_id,
-                      timestamps,
-                      store_bands=False):
+def store_points_data(data_array, coords, pixel_class, event_id, timestamps):
     data_df = []
     idx = 0
     for timeseries_data, point in zip(data_array, coords):
         x, y = point
-        if store_bands:
-            for idx, data in enumerate(timeseries_data):
-
-                data_df.append({
-                    "x": x,
-                    "y": y,
-                    "class": pixel_class,
-                    "event_id": event_id,
-                    'IR_016': data[0],
-                    'IR_039': data[1],
-                    'IR_087': data[2],
-                    'IR_097': data[3],
-                    'IR_108': data[4],
-                    'IR_120': data[5],
-                    'IR_134': data[6],
-                    'VIS006': data[7],
-                    'VIS008': data[8],
-                    'WV_062': data[9],
-                    'WV_073': data[10],
-                    "time": timestamps[idx]
-                })
-        else:
+        for idx, data in enumerate(timeseries_data):
             data_df.append({
                 "x": x,
                 "y": y,
                 "class": pixel_class,
-                "event_id": event_id
+                "event_id": event_id,
+                'IR_016': data[0],
+                'IR_039': data[1],
+                'IR_087': data[2],
+                'IR_097': data[3],
+                'IR_108': data[4],
+                'IR_120': data[5],
+                'IR_134': data[6],
+                'VIS006': data[7],
+                'VIS008': data[8],
+                'WV_062': data[9],
+                'WV_073': data[10],
+                "time": timestamps[idx]
             })
     return data_df
 
@@ -207,15 +194,15 @@ def main():
     events_df["id"] = events_df["id"].astype(int)
 
     events_id = events_df["id"].unique()
-    # load data
-    # pixels_df = gpd.GeoDataFrame(columns=[
-    #     'x', 'y', 'class', 'event_id', 'IR_016', 'IR_039', 'IR_087', 'IR_097',
-    #     'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'
-    # ])
-
-    data_df = []
 
     for event in tqdm(events_id):
+        out_event_folder = args.output_path / str(event)
+        if out_event_folder.exists() and (
+                out_event_folder / "positive_data.npy").exists() and (
+                    out_event_folder / "negative_data.npy").exists():
+            print(f"Event {event} already processed")
+            continue
+        out_event_folder.mkdir(parents=True, exist_ok=True)
         folder = args.data_path / str(
             event) / "EO:EUM:DAT:MSG:HRSEVIRI" / "zarr"
         if not folder.exists():
@@ -236,62 +223,8 @@ def main():
         positive_data = np.transpose(positive_data, (1, 0, 2))
         negative_data = np.transpose(negative_data, (1, 0, 2))
 
-        data_df.extend(
-            store_points_data(positive_data, positive_coords, 1, event,
-                              timestamps, args.store_bands))
-        data_df.extend(
-            store_points_data(negative_data, negative_coords, 0, event,
-                              timestamps, args.store_bands))
-        # for timeseries_data, point in zip(positive_data, positive_coords):
-        #     x, y = point
-        #     pixel_class = 1
-        #     for idx, data in enumerate(timeseries_data):
-        #         data_df.append({
-        #             "x": x,
-        #             "y": y,
-        #             "class": pixel_class,
-        #             "event_id": event,
-        #             'IR_016': data[0],
-        #             'IR_039': data[1],
-        #             'IR_087': data[2],
-        #             'IR_097': data[3],
-        #             'IR_108': data[4],
-        #             'IR_120': data[5],
-        #             'IR_134': data[6],
-        #             'VIS006': data[7],
-        #             'VIS008': data[8],
-        #             'WV_062': data[9],
-        #             'WV_073': data[10],
-        #             "time": timestamps[idx]
-        #         })
-
-        # # save negative data
-
-        # for timeseries_data, point in zip(positive_data, positive_coords):
-        #     x, y = point
-        #     pixel_class = 0
-        #     for idx, data in enumerate(timeseries_data):
-        #         data_df.append({
-        #             "x": x,
-        #             "y": y,
-        #             "class": pixel_class,
-        #             "event_id": event,
-        #             'IR_016': data[0],
-        #             'IR_039': data[1],
-        #             'IR_087': data[2],
-        #             'IR_097': data[3],
-        #             'IR_108': data[4],
-        #             'IR_120': data[5],
-        #             'IR_134': data[6],
-        #             'VIS006': data[7],
-        #             'VIS008': data[8],
-        #             'WV_062': data[9],
-        #             'WV_073': data[10],
-        #             "time": timestamps[idx]
-        #         })
-
-        pixels_df = gpd.GeoDataFrame(data_df)
-        pixels_df.to_csv(args.output_path / args.output_name, index=False)
+        np.save(out_event_folder / "positive_data.npy", positive_data)
+        np.save(out_event_folder / "negative_data.npy", negative_data)
 
 
 main()
