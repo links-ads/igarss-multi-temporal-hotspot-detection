@@ -49,6 +49,7 @@ def parse_args():
         default=1,
         help='Margin to add to the pixels selection of the events')
     parser.add_argument("--store_bands", action="store_true")
+    parser.add_argument("--use_cache", action="store_true")
     return parser.parse_args()
 
 
@@ -126,6 +127,12 @@ def extract_pixels_from_xarray(
 
     x = data.x_geostationary.values
     y = data.y_geostationary.values
+
+    # recompute because sometimes mask misses some values. Who knows why
+    indexes = np.where(mask_pos)
+
+    indexes_x = indexes[3]
+    indexes_y = indexes[2]
 
     points_pos = np.array([x[indexes_x], y[indexes_y]]).T
 
@@ -213,9 +220,14 @@ def main():
     #     'IR_108', 'IR_120', 'IR_134', 'VIS006', 'VIS008', 'WV_062', 'WV_073'
     # ])
 
-    data_df = []
-
+    it = 0
+    if args.use_cache and (args.output_path / args.output_name).exists():
+        cached_df = gpd.read_file(args.output_path / args.output_name)
+        cached_events = cached_df["event_id"].unique()
     for event in tqdm(events_id):
+        if args.use_cache and str(event) in cached_events:
+            print(f"Event {event} already processed")
+            continue
         folder = args.data_path / str(
             event) / "EO:EUM:DAT:MSG:HRSEVIRI" / "zarr"
         if not folder.exists():
@@ -236,6 +248,7 @@ def main():
         positive_data = np.transpose(positive_data, (1, 0, 2))
         negative_data = np.transpose(negative_data, (1, 0, 2))
 
+        data_df = []
         data_df.extend(
             store_points_data(positive_data, positive_coords, 1, event,
                               timestamps, args.store_bands))
@@ -291,7 +304,12 @@ def main():
         #         })
 
         pixels_df = gpd.GeoDataFrame(data_df)
-        pixels_df.to_csv(args.output_path / args.output_name, index=False)
+
+        pixels_df.to_csv(args.output_path / args.output_name,
+                         index=False,
+                         mode='a' if it > 0 else 'w',
+                         header=it == 0)
+        it += 1
 
 
 main()
