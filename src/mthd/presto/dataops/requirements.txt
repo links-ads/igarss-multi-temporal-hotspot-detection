@@ -1,3 +1,0 @@
-google-cloud-storage
-numpy
-openmapflow[data]==0.2.1
