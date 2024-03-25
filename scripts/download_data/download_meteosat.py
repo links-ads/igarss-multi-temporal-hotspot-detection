@@ -10,10 +10,9 @@ import eumdac.local_tailor
 import geopandas as gpd
 import pandas as pd
 import requests
-from satip.utils import load_native_to_dataarray
 from tqdm import tqdm
 
-log_filename = f'logs/download_meteosat_satip_{datetime.now()}'
+log_filename = f'logs/download_meteosat_{datetime.now()}'
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(message)s',
                     filename=f'{log_filename}.log',
@@ -84,8 +83,8 @@ def read_catalog(file: Path):
     df = gpd.read_file(file,
                        GEOM_POSSIBLE_NAMES="geometry",
                        KEEP_GEOM_COLUMNS="NO")
-    df['initialdate'] = pd.to_datetime(df['initialdate'], format='ISO8601')
-    df['finaldate'] = pd.to_datetime(df['finaldate'], format='ISO8601')
+    df['initialdate'] = pd.to_datetime(df['initialdate'])
+    df['finaldate'] = pd.to_datetime(df['finaldate'])
     return df[["id", "geometry", "initialdate", "finaldate", "country"]]
 
 
@@ -105,15 +104,13 @@ def download_meteosat_product(event_id, product, country: str,
                               output_folder: Path):
     native_output_folder = output_folder / "native"
     native_output_folder.mkdir(parents=True, exist_ok=True)
-    zarr_output_folder = output_folder / "zarr"
-    zarr_output_folder.mkdir(parents=True, exist_ok=True)
+    # zarr_output_folder = output_folder / "zarr"
+    # zarr_output_folder.mkdir(parents=True, exist_ok=True)
 
     try:
         nat_filename = [e for e in product.entries if e.endswith(".nat")][0]
         out_nat_file = native_output_folder / nat_filename
-        if not out_nat_file.is_file() or not (
-                zarr_output_folder / f"{product}.nc").is_file() or not (
-                    zarr_output_folder / f"{product}_hrv.nc").is_file():
+        if not out_nat_file.is_file():
             logging.info(
                 f'EVENT {event_id} - Downloading product {product}...')
             with product.open(entry=nat_filename) as fsrc, \
@@ -135,20 +132,23 @@ def download_meteosat_product(event_id, product, country: str,
     except requests.exceptions.RequestException as error:
         logging.error(f"EVENT {event_id} - Unexpected error: {error}")
 
-    logging.info(f'EVENT {event_id} - Converting product {product} to zarr...')
-    zarr_data, zarr_data_hrv = load_native_to_dataarray(out_nat_file,
-                                                        area="EU",
-                                                        temp_directory="temp")
+    # logging.info(f'EVENT {event_id} - Converting product {product} to zarr...')
+    # zarr_data, zarr_data_hrv = load_native_to_dataarray(out_nat_file,
+    #                                                     area="EU",
+    #                                                     temp_directory="temp")
 
-    zarr_data.to_netcdf(zarr_output_folder / f"{product}.nc")
-    zarr_data_hrv.to_netcdf(zarr_output_folder / f"{product}_hrv.nc")
-    logging.info(
-        f'EVENT {event_id} - Conversion of product {product} to zarr finished.'
-    )
+    # zarr_data.to_netcdf(zarr_output_folder / f"{product}.nc")
+    # zarr_data_hrv.to_netcdf(zarr_output_folder / f"{product}_hrv.nc")
+    # logging.info(
+    #     f'EVENT {event_id} - Conversion of product {product} to zarr finished.'
+    # )
 
 
 def is_product_already_downloaded(product, output_folder: Path):
-    return (output_folder / "zarr" / f"{product}.nc").is_file()
+    # logging.info(
+    # f'Checking if product {product} is already downloaded in {output_folder / "native" / f"{product}.NAT"}...'
+    # )
+    return (output_folder / "native" / f"{product}.nat").is_file()
 
 
 def downloader_thread(idx: int, event_list: pd.DataFrame, time_offset: int,
@@ -171,14 +171,18 @@ def downloader_thread(idx: int, event_list: pd.DataFrame, time_offset: int,
         for p in products:
             if is_product_already_downloaded(
                     p, output_folder / event["id"] / collection):
-                logging.info(f'Product {p} already downloaded')
+                logging.info(
+                    f'EVENT {event["id"]} - Product {p} already downloaded')
                 continue
             else:
+                logging.info(
+                    f'EVENT {event["id"]} - Downloading product {p}...')
                 download_meteosat_product(event_id=event["id"],
                                           product=p,
                                           country=event["country"],
                                           output_folder=output_folder /
                                           event["id"] / collection)
+        logging.info(f'EVENT {event["id"]} - Finished processing event')
 
 
 def main(args):
