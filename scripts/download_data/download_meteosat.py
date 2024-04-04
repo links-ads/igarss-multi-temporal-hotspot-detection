@@ -170,18 +170,18 @@ def downloader_thread(idx: int, event_list: pd.DataFrame, time_offset: int,
 
         for p in products:
             if is_product_already_downloaded(
-                    p, output_folder / event["id"] / collection):
+                    p, output_folder / str(event["id"]) / collection):
                 logging.info(
                     f'EVENT {event["id"]} - Product {p} already downloaded')
                 continue
             else:
                 logging.info(
                     f'EVENT {event["id"]} - Downloading product {p}...')
-                download_meteosat_product(event_id=event["id"],
+                download_meteosat_product(event_id=str(event["id"]),
                                           product=p,
                                           country=event["country"],
                                           output_folder=output_folder /
-                                          event["id"] / collection)
+                                          str(event["id"]) / collection)
         logging.info(f'EVENT {event["id"]} - Finished processing event')
 
 
