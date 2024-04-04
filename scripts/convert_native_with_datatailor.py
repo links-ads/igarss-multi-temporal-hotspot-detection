@@ -2,6 +2,7 @@ import argparse
 import os
 from pathlib import Path
 
+import geopandas as gpd
 import pandas as pd
 from epct import api
 from tqdm import tqdm
@@ -45,7 +46,9 @@ def parse_args():
 def main():
     args = parse_args()
 
-    events = pd.read_csv(args.event_file)
+    events = gpd.read_file(args.event_file,
+                           GEOM_POSSIBLE_NAMES="geometry",
+                           KEEP_GEOM_COLUMNS="NO")
 
     for folder in args.input_folder.iterdir():
 
