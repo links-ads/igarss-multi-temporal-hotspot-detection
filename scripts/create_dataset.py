@@ -145,20 +145,19 @@ def extract_pixels_from_xarray(
     time = len(data["time"])
     num_points = round(mask.sum() / time / 11)
     num_points_neg = round(mask_neg.sum() / time / 11)
-    return data_np[mask_pos].reshape(
-        time, num_points, 11), data_np[mask_neg].reshape(
-            time, num_points_neg,
-            11), mask_pos, mask_neg, data_np, points_pos.reshape(
-                time, num_points, 11,
-                2)[0, :, 0, :], points_neg.reshape(time, num_points_neg, 11,
-                                                   2)[0, :,
-                                                      0, :], data.time.values
+    final_data_pos = data_np[mask_pos].reshape(11, time, num_points)
+    final_data_pos = np.transpose(final_data_pos, (1, 2, 0))
+    final_data_neg = data_np[mask_neg].reshape(11, time, num_points_neg)
+    final_data_neg = np.transpose(final_data_neg, (1, 2, 0))
+
+    return final_data_pos, final_data_neg, mask_pos, mask_neg, data_np, points_pos.reshape(
+        time, num_points, 11,
+        2)[0, :, 0, :], points_neg.reshape(time, num_points_neg, 11,
+                                           2)[0, :, 0, :], data.time.values
 
 
-def read_timeseries_xarray(folder: Path):
-    return xarray.open_mfdataset(folder.glob("*.nc"),
-                                 concat_dim="time",
-                                 combine="nested")
+def read_timeseries_xarray(files: list):
+    return xarray.open_mfdataset(files, concat_dim="time", combine="nested")
 
 
 def read_single_xarray(file: Path):
@@ -172,7 +171,7 @@ def store_points_data(data_array,
                       timestamps,
                       store_bands=False):
     data_df = []
-    idx = 0
+    point_idx = 0
     for timeseries_data, point in zip(data_array, coords):
         x, y = point
         if store_bands:
@@ -181,6 +180,7 @@ def store_points_data(data_array,
                 data_df.append({
                     "x": x,
                     "y": y,
+                    "point_id": point_idx,
                     "class": pixel_class,
                     "event_id": event_id,
                     'IR_016': data[0],
@@ -205,6 +205,7 @@ def store_points_data(data_array,
                 "event_id": event_id,
                 "geometry": f"POINT ({x} {y})"
             })
+        point_idx += 1
     return data_df
 
 
@@ -235,13 +236,17 @@ def main():
             print(f"Folder {folder} does not exist")
             continue
         print(f"Processing event {event}")
-        data = read_timeseries_xarray(folder)
+
+        files = [f for f in folder.glob("*.nc")]
+        files.sort()
+        timestamps = [f.stem.split("_")[1] for f in files]
+        data = read_timeseries_xarray(files)
         event_geometry = events_df[events_df["id"] == int(event)].geometry
         data = extract_pixels_from_xarray(data,
                                           event_geometry.geometry.values[0],
                                           args.margin)
 
-        positive_data, negative_data, positive_mask, negative_mask, data_np, positive_coords, negative_coords, timestamps = data
+        positive_data, negative_data, positive_mask, negative_mask, data_np, positive_coords, negative_coords, _ = data
 
         positive_data = np.transpose(positive_data, (1, 0, 2))
         negative_data = np.transpose(negative_data, (1, 0, 2))
