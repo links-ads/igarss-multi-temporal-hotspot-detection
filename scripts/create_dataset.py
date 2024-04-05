@@ -77,7 +77,6 @@ def extract_pixels_from_xarray(
     """
 
     minx, miny, maxx, maxy = event_geometry.bounds
-    # in the xarray x and y are swapped
     point_min = data.sel(lat=miny, lon=minx, method="nearest")
     point_max = data.sel(lat=maxy, lon=maxx, method="nearest")
     # IF THE GEOM IS TOO SMALL, ONLY 1 PIXEL IS SELECTED
@@ -85,10 +84,10 @@ def extract_pixels_from_xarray(
         correct_points_mask = data.where((data.lat == point_min.lat.values)
                                          & (data.lon == point_min.lon.values))
     else:
-        correct_points_mask = data.where((data.lat >= minx)
-                                         & (data.lat <= maxx)
-                                         & (data.lon >= miny)
-                                         & (data.lon <= maxy))
+        correct_points_mask = data.where((data.lat >= miny)
+                                         & (data.lat <= maxy)
+                                         & (data.lon >= minx)
+                                         & (data.lon <= maxx))
     # create a mask where nan is false and true otherwse
     mask = correct_points_mask.notnull().to_array().to_numpy()[1:, :, :, :]
 
@@ -97,6 +96,7 @@ def extract_pixels_from_xarray(
     data_np = np.zeros((11, data.time.size, data.lat.size, data.lon.size))
     for i in range(1, 12):
         data_np[i - 1, :, :, :] = data[f"channel_{i}"].to_numpy()
+
     mask_pos = np.zeros_like(mask)
     mask_neg = np.zeros_like(mask)
     indexes = np.where(mask)
@@ -105,23 +105,23 @@ def extract_pixels_from_xarray(
     indexes_y = indexes[3]
 
     indexes_x_right = indexes_x + margin
-    indexes_y_right = indexes_y + margin
+    indexes_y_up = indexes_y + margin
     indexes_x_left = indexes_x - margin
-    indexes_y_left = indexes_y - margin
+    indexes_y_down = indexes_y - margin
 
-    indexes_y_right = indexes_y_right.clip(0, data_np.shape[3] - 1)
+    indexes_y_up = indexes_y_up.clip(0, data_np.shape[3] - 1)
     indexes_x_right = indexes_x_right.clip(0, data_np.shape[2] - 1)
-    indexes_y_left = indexes_y_left.clip(0, data_np.shape[3] - 1)
+    indexes_y_down = indexes_y_down.clip(0, data_np.shape[3] - 1)
     indexes_x_left = indexes_x_left.clip(0, data_np.shape[2] - 1)
 
-    mask_neg[:, :, indexes_x_right, indexes_y_right] = 1
-    mask_neg[:, :, indexes_x_left, indexes_y_left] = 1
-    mask_neg[:, :, indexes_x_left, indexes_y_right] = 1
-    mask_neg[:, :, indexes_x_right, indexes_y_left] = 1
+    mask_neg[:, :, indexes_x_right, indexes_y_up] = 1
+    mask_neg[:, :, indexes_x_left, indexes_y_down] = 1
+    mask_neg[:, :, indexes_x_left, indexes_y_up] = 1
+    mask_neg[:, :, indexes_x_right, indexes_y_down] = 1
     mask_neg[:, :, indexes_x_right, indexes_y] = 1
     mask_neg[:, :, indexes_x_left, indexes_y] = 1
-    mask_neg[:, :, indexes_x, indexes_y_right] = 1
-    mask_neg[:, :, indexes_x, indexes_y_left] = 1
+    mask_neg[:, :, indexes_x, indexes_y_up] = 1
+    mask_neg[:, :, indexes_x, indexes_y_down] = 1
     mask_pos[:, :, indexes_x, indexes_y] = 1
     mask_neg[:, :, indexes_x, indexes_y] = 0
 
@@ -137,7 +137,7 @@ def extract_pixels_from_xarray(
     points_pos = np.array([x[indexes_x], y[indexes_y]]).T
 
     indexes_neg = np.where(mask_neg)
-    indexes = np.where(mask_neg)
+    # indexes = np.where(mask_neg)
     indexes_x_neg = indexes_neg[3]
     indexes_y_neg = indexes_neg[2]
 
