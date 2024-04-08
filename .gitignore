@@ -160,3 +160,5 @@ jobs
 outputs
 debug/
 logs/
+*.sh
+scripts/run_convert.sh
