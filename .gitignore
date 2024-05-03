@@ -162,3 +162,5 @@ debug/
 logs/
 *.sh
 scripts/run_convert.sh
+lightning_logs
+lightning_logs_old
