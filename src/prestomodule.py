@@ -1,6 +1,8 @@
 import torch
 from pytorch_lightning import LightningModule
 from pytorch_lightning.utilities.types import OptimizerLRScheduler
+from torchmetrics.classification import BinaryF1Score
+from torchmetrics.functional.classification import binary_f1_score
 
 from mthd.presto import Presto
 
@@ -25,7 +27,8 @@ class PrestoModule(LightningModule):
                  lc_loss_weight: float = 2.0,
                  optimizer: str = 'adam',
                  lr: float = 1e-3,
-                 scheduler: str = 'cosine'):
+                 scheduler: str = 'cosine',
+                 compute_loss_lc=True):
 
         super(PrestoModule, self).__init__()
         self.model = Presto.construct(num_landcover_classes,
@@ -43,13 +46,47 @@ class PrestoModule(LightningModule):
 
         assert loss in ["mse", "mae"], "Loss must be either 'mse' or 'mae'"
         assert loss_lc in ["ce"], "Landcover loss must be 'ce' "
+        self.compute_loss_lc = compute_loss_lc
         self.loss = torch.nn.MSELoss() if loss == "mse" else torch.nn.L1Loss()
         self.loss_lc = torch.nn.CrossEntropyLoss()
-        self.loss_class = torch.nn.BCEWithLogitsLoss()
+        weight = torch.tensor([1 / 0.25])
+        self.loss_class = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
+        self.f1 = BinaryF1Score()
         self.optimizer = optimizer
         self.lr = lr
         self.scheduler = scheduler
         self.lc_loss_weight = lc_loss_weight
+        self.train_tp = 0
+        self.train_tn = 0
+        self.train_fp = 0
+        self.train_fn = 0
+        self.val_tp = 0
+        self.val_tn = 0
+        self.val_fp = 0
+        self.val_fn = 0
+        self.test_tp = 0
+        self.test_tn = 0
+        self.test_fp = 0
+        self.test_fn = 0
+
+    def compute_tp(self, y_pred, y_true):
+        return torch.sum((y_pred == 1) & (y_true == 1))
+
+    def compute_tn(self, y_pred, y_true):
+        return torch.sum((y_pred == 0) & (y_true == 0))
+
+    def compute_fp(self, y_pred, y_true):
+        return torch.sum((y_pred == 1) & (y_true == 0))
+
+    def compute_fn(self, y_pred, y_true):
+        return torch.sum((y_pred == 0) & (y_true == 1))
+
+    def compute_f1(self, tp, tn, fp, fn):
+        return 2 * tp / (2 * tp + fp + fn)
+
+    # def compute_f1(self):
+    #     return 2 * self.train_tp / (2 * self.train_tp + self.train_fp +
+    #                                 self.train_fn)
 
     def forward(self, x, mask, landcover, latlons, months):
         y_pred, lc_pred = self.model(x,
@@ -69,7 +106,8 @@ class PrestoModule(LightningModule):
                      class_gt,
                      class_pred,
                      padding_mask_eo=None,
-                     padding_mask_lc=None):
+                     padding_mask_lc=None,
+                     compute_loss_lc=True):
 
         if padding_mask_eo is not None:
             y_pred = y_pred[padding_mask_eo]
@@ -80,49 +118,135 @@ class PrestoModule(LightningModule):
             lc_true = lc_true[padding_mask_lc]
 
         eo_loss = self.loss(y_pred, y_true)
-        lc_loss = self.loss_lc(lc_pred[lc_mask], lc_true[lc_mask])
-        num_eo_masked, num_lc_masked = len(y_pred[mask]), len(lc_pred[lc_mask])
-        with torch.no_grad():
-            ratio = num_lc_masked / max(num_eo_masked, 1)
-            # weight shouldn't be > 1
-            weight = min(1, self.lc_loss_weight * ratio)
         class_loss = self.loss_class(class_pred, class_gt.float())
-        total_loss = eo_loss + weight * lc_loss + class_loss
-        return total_loss, eo_loss, lc_loss, class_loss
 
-    def forward_compute_loss(self, batch):
+        if compute_loss_lc:
+            lc_loss = self.loss_lc(lc_pred[lc_mask], lc_true[lc_mask])
+            num_eo_masked, num_lc_masked = len(y_pred[mask]), len(
+                lc_pred[lc_mask])
+            with torch.no_grad():
+                ratio = num_lc_masked / max(num_eo_masked, 1)
+                # weight shouldn't be > 1
+                weight = min(1, self.lc_loss_weight * ratio)
+
+            total_loss = eo_loss + weight * lc_loss + class_loss
+            return total_loss, eo_loss, lc_loss, class_loss
+        else:
+            total_loss = eo_loss + class_loss
+            return total_loss, eo_loss, class_loss
+
+    def forward_compute_loss(self, batch, compute_loss_lc=True):
         mask_eo, mask_lc, x_eo, y_eo, x_lc, y_lc, latlons, months, class_gt = batch
         # mask_eo, mask_lc, x_eo, y_eo, x_lc, y_lc, latlons, months, class_gt, padding_mask_eo, padding_mask_lc = batch
         y_pred, lc_pred, class_pred = self.model(x_eo, x_lc, latlons, mask_eo,
                                                  months)
-        loss, eo_loss, lc_loss, class_loss = self.compute_loss(
-            y_pred, y_eo, lc_pred, y_lc, mask_eo, mask_lc, class_gt,
-            class_pred)
-        return loss, eo_loss, lc_loss, class_loss
+        losses = self.compute_loss(y_pred,
+                                   y_eo,
+                                   lc_pred,
+                                   y_lc,
+                                   mask_eo,
+                                   mask_lc,
+                                   class_gt,
+                                   class_pred,
+                                   compute_loss_lc=compute_loss_lc)
+
+        # f1 = binary_f1_score(torch.sigmoid(class_pred), class_gt)
+        class_pred_bin = (torch.sigmoid(class_pred) > 0.5).int()
+        tp = self.compute_tp(class_pred_bin, class_gt)
+        tn = self.compute_tn(class_pred_bin, class_gt)
+        fp = self.compute_fp(class_pred_bin, class_gt)
+        fn = self.compute_fn(class_pred_bin, class_gt)
+        return losses, tp, tn, fp, fn
 
     def training_step(self, batch, batch_idx):
-        loss, eo_loss, lc_loss, class_loss = self.forward_compute_loss(batch)
+        losses, tp, tn, fp, fn = self.forward_compute_loss(
+            batch, self.compute_loss_lc)
+        self.train_tp += tp
+        self.train_tn += tn
+        self.train_fp += fp
+        self.train_fn += fn
+
+        if self.compute_loss_lc:
+            loss, eo_loss, lc_loss, class_loss = losses
+            self.log("train_lc_loss", lc_loss)
+        else:
+            loss, eo_loss, class_loss = losses
         self.log("train_loss", loss)
         self.log("train_eo_loss", eo_loss)
-        self.log("train_lc_loss", lc_loss)
         self.log("train_class_loss", class_loss)
+        # self.log("train_f1", f1)
         return loss
+
+    def on_train_epoch_end(self):
+
+        f1 = self.compute_f1(self.train_tp, self.train_tn, self.train_fp,
+                             self.train_fn)
+        self.log("train_f1", f1)
+
+        self.train_tp = 0
+        self.train_tn = 0
+        self.train_fp = 0
+        self.train_fn = 0
 
     def validation_step(self, batch, batch_idx):
-        loss, eo_loss, lc_loss, class_loss = self.forward_compute_loss(batch)
+        losses, tp, tn, fp, fn = self.forward_compute_loss(
+            batch, self.compute_loss_lc)
+        self.val_tp += tp
+        self.val_tn += tn
+        self.val_fp += fp
+        self.val_fn += fn
+
+        if self.compute_loss_lc:
+            loss, eo_loss, lc_loss, class_loss = losses
+            self.log("val_lc_loss", lc_loss)
+        else:
+            loss, eo_loss, class_loss = losses
         self.log("val_loss", loss)
         self.log("val_eo_loss", eo_loss)
-        self.log("val_lc_loss", lc_loss)
         self.log("val_class_loss", class_loss)
+        # self.log("val_f1", f1)
         return loss
 
+    def on_validation_epoch_end(self):
+
+        f1 = self.compute_f1(self.val_tp, self.val_tn, self.val_fp,
+                             self.val_fn)
+        self.log("val_f1", f1)
+
+        self.val_tp = 0
+        self.val_tn = 0
+        self.val_fp = 0
+        self.val_fn = 0
+
     def test_step(self, batch, batch_idx):
-        loss, eo_loss, lc_loss, class_loss = self.forward_compute_loss(batch)
+        losses, tp, tn, fp, fn = self.forward_compute_loss(
+            batch, self.compute_loss_lc)
+        self.test_tp += tp
+        self.test_tn += tn
+        self.test_fp += fp
+        self.test_fn += fn
+
+        if self.compute_loss_lc:
+            loss, eo_loss, lc_loss, class_loss = losses
+            self.log("test_lc_loss", lc_loss)
+        else:
+            loss, eo_loss, class_loss = losses
         self.log("test_loss", loss)
         self.log("test_eo_loss", eo_loss)
-        self.log("test_lc_loss", lc_loss)
         self.log("test_class_loss", class_loss)
+        # self.log("test_f1", f1)
         return loss
+
+    def on_test_end(self):
+
+        f1 = self.compute_f1(self.test_tp, self.test_tn, self.test_fp,
+                             self.test_fn)
+        print("test_f1", f1)
+        # self.logger.experiment.log_metric("test_f1", f1)
+        self.test_tp = 0
+        self.test_tn = 0
+        self.test_fp = 0
+        self.test_fn = 0
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         if self.optimizer == 'adam':

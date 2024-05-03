@@ -366,7 +366,8 @@ class Encoder(nn.Module):
             mask = torch.zeros_like(x, device=x.device).float()
 
         # months = month_to_tensor(month, x.shape[0], x.shape[1], device)
-        months = torch.ones(x.shape[0], x.shape[1], dtype=torch.int) * month
+        months = torch.ones(x.shape[0], x.shape[1],
+                            dtype=torch.int).to(device) * month
         months.to(device)
 
         month_embedding = self.month_embed(months)

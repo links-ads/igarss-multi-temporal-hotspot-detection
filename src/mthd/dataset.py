@@ -34,11 +34,11 @@ NUM_LC_CLASSES = 11
 class MeteosatDataset(Dataset):
 
     def __init__(self, catalog_file, mask_params, max_timesteps):
-        self.meteosat_dataframe = self.__load_data__(catalog_file)
         self.mins = np.array(MINS)
         self.maxs = np.array(MAXS)
         self.mask_params = mask_params
         self.max_timesteps = max_timesteps
+        self.meteosat_dataframe = self.__load_data__(catalog_file)
 
     def __load_data__(self, catalog_file):
         self.meteosat_df = gpd.read_file(catalog_file,
@@ -51,9 +51,17 @@ class MeteosatDataset(Dataset):
         keys = self.meteosat_df.groupby(["event_id", "point_id",
                                          "class"]).groups.keys()
         self.data_idxs = list(keys)
+        self.tot_timeseries = 0
+
+        for event_id, point_id, class_point in self.data_idxs:
+
+            channels, lc, lons, lats, months = self.__get_timeseries__(
+                event_id, point_id, class_point)
+
+            self.tot_timeseries += (channels.shape[0] // self.max_timesteps)
 
     def __len__(self):
-        return len(self.data_idxs)
+        return self.tot_timeseries
 
     def __get_timestep_data__(self, sample):
         lon = sample["x"]
@@ -220,6 +228,8 @@ class CustomSampler(Sampler):
                 #     padding_mask_eo = np.zeros_like(x_eo)
                 #     padding_mask_lc = np.zeros_like(x_lc)
                 # print(f"masked elements: {mask_eo.sum()}")
+                # if class_point > 0:
+                #     print("positive point")
                 yield mask_eo, mask_lc, x_eo.astype(np.float32), y_eo.astype(
                     np.float32), x_lc.astype(int), y_lc.astype(
                         int), latlons.astype(

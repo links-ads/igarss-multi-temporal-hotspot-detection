@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument('--seed', '-s', type=int, default=42)
     parser.add_argument('--optimizer', '-o', type=str, default='sgd')
     parser.add_argument('--scheduler', '-sc', type=str, default='step')
+    parser.add_argument('--compute_loss_lc', action='store_true')
     parser.add_argument(
         "--mask_strategies",
         type=str,
@@ -43,6 +44,10 @@ def parse_args():
 def main():
 
     args = parse_args()
+    print(
+        f"epochs: {args.max_epochs}\nbs: {args.batch_size}\nlr: {args.lr}\n optimizer: {args.optimizer}\n scheduler: {args.scheduler}"
+    )
+    pl.seed_everything(args.seed)
     mask_strategies = tuple(args.mask_strategies)
     if (len(mask_strategies) == 1) and (mask_strategies[0] == "all"):
         mask_strategies = MASK_STRATEGIES
@@ -61,12 +66,13 @@ def main():
         lr=args.lr,
         optimizer=args.optimizer,
         scheduler=args.scheduler,
+        compute_loss_lc=args.compute_loss_lc,
     )
 
     logger = TensorBoardLogger(
         args.log_dir,
         name=
-        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}"
+        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}_loss_lc_{args.compute_loss_lc}"
     )
 
     trainer = pl.Trainer(max_epochs=args.max_epochs,
@@ -75,6 +81,8 @@ def main():
                          log_every_n_steps=10)
 
     trainer.fit(model, data_module)
+    # test
+    trainer.test(model, data_module)
 
 
 main()
