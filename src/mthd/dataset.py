@@ -58,7 +58,8 @@ class MeteosatDataset(Dataset):
             channels, lc, lons, lats, months = self.__get_timeseries__(
                 event_id, point_id, class_point)
 
-            self.tot_timeseries += (channels.shape[0] // self.max_timesteps)
+            self.tot_timeseries += (channels.shape[0] - self.max_timesteps)
+        return
 
     def __len__(self):
         return self.tot_timeseries
@@ -161,13 +162,12 @@ class CustomSampler(Sampler):
     def sliding_window(self, eo, lc, months, stride):
         assert eo.shape[0] == lc.shape[0], "eo and lc have not same shape"
         for i in range(eo.shape[0] - stride):
-            yield eo[i:min(i + stride, eo.shape[0])], lc[i:min(
-                i +
-                stride, lc.shape[0])], months[i:min(i +
-                                                    stride, months.shape[0])]
+            yield eo[i:min(i + stride, eo.shape[0])], lc[
+                i:min(i + stride, lc.shape[0]
+                      )], months[i:min(i + stride, months.shape[0])] - 1
 
     def __iter__(self):
-        for idx in range(len(self.dataset)):
+        for idx in range(len(self.dataset.data_idxs)):
             event_id, point_id, class_point = self.dataset.data_idxs[idx]
 
             channels, lc, lons, lats, months = self.dataset.__get_timeseries__(

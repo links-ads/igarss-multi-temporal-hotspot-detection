@@ -28,7 +28,8 @@ class PrestoModule(LightningModule):
                  optimizer: str = 'adam',
                  lr: float = 1e-3,
                  scheduler: str = 'cosine',
-                 compute_loss_lc=True):
+                 compute_loss_lc=True,
+                 positive_weight=1.0):
 
         super(PrestoModule, self).__init__()
         self.model = Presto.construct(num_landcover_classes,
@@ -49,7 +50,7 @@ class PrestoModule(LightningModule):
         self.compute_loss_lc = compute_loss_lc
         self.loss = torch.nn.MSELoss() if loss == "mse" else torch.nn.L1Loss()
         self.loss_lc = torch.nn.CrossEntropyLoss()
-        weight = torch.tensor([1 / 0.25])
+        weight = torch.tensor([1 / positive_weight])
         self.loss_class = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
         self.f1 = BinaryF1Score()
         self.optimizer = optimizer
@@ -247,6 +248,7 @@ class PrestoModule(LightningModule):
         self.test_tn = 0
         self.test_fp = 0
         self.test_fn = 0
+        self.log("test_f1", f1, epoch_end=True)
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         if self.optimizer == 'adam':
@@ -274,9 +276,17 @@ class PrestoModule(LightningModule):
                 optimizer, T_0=10)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
+        elif self.scheduler == 'linear':
+            scheduler = torch.optim.lr_scheduler.LinearLR(optimizer)
+            return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
+        elif self.scheduler == 'cosine_wr':
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                optimizer, T_0=10)
+            return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
         else:
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                         step_size=10)
+
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
     def lr_scheduler_step(self, scheduler, metric):

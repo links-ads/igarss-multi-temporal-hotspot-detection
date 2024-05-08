@@ -24,6 +24,10 @@ def parse_args():
     parser.add_argument('--optimizer', '-o', type=str, default='sgd')
     parser.add_argument('--scheduler', '-sc', type=str, default='step')
     parser.add_argument('--compute_loss_lc', action='store_true')
+    parser.add_argument('--positive_weight_loss_class',
+                        type=float,
+                        default=0.25)
+    parser.add_argument('--lc_loss_weight', type=float, default=2.0)
     parser.add_argument(
         "--mask_strategies",
         type=str,
@@ -44,9 +48,19 @@ def parse_args():
 def main():
 
     args = parse_args()
-    print(
-        f"epochs: {args.max_epochs}\nbs: {args.batch_size}\nlr: {args.lr}\n optimizer: {args.optimizer}\n scheduler: {args.scheduler}"
-    )
+    print(f"epochs: {args.max_epochs}\n\
+            bs: {args.batch_size}\n\
+            lr: {args.lr}\n\
+            optimizer: {args.optimizer}\n\
+            scheduler: {args.scheduler}\n\
+            compute_loss_lc: {args.compute_loss_lc}\n\
+            lc_loss_weight: {args.lc_loss_weight}\n\
+            mask_strategies: {args.mask_strategies}\n\
+            mask_ratio: {args.mask_ratio}\n\
+            positive_weight_loss_class: {args.positive_weight_loss_class}\n\
+            log_dir: {args.log_dir}\n\
+            seed: {args.seed}")
+
     pl.seed_everything(args.seed)
     mask_strategies = tuple(args.mask_strategies)
     if (len(mask_strategies) == 1) and (mask_strategies[0] == "all"):
@@ -67,12 +81,14 @@ def main():
         optimizer=args.optimizer,
         scheduler=args.scheduler,
         compute_loss_lc=args.compute_loss_lc,
+        lc_loss_weight=args.lc_loss_weight,
+        positive_weight=args.positive_weight_loss_class,
     )
 
     logger = TensorBoardLogger(
         args.log_dir,
         name=
-        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}_loss_lc_{args.compute_loss_lc}"
+        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}_loss_lc_{args.compute_loss_lc}_lc_loss_weight_{args.lc_loss_weight}"
     )
 
     trainer = pl.Trainer(max_epochs=args.max_epochs,
