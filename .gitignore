@@ -163,4 +163,8 @@ logs/
 *.sh
 scripts/run_convert.sh
 lightning_logs
+lightning_logs_debug
+lightning_logs_reduced_dataset
 lightning_logs_old
+lightning_logs_old_dataset
+
