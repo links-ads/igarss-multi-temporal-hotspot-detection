@@ -248,9 +248,10 @@ class PrestoModule(LightningModule):
         self.test_tn = 0
         self.test_fp = 0
         self.test_fn = 0
-        self.log("test_f1", f1, epoch_end=True)
+        self.logger.experiment.add_scalar("test_f1", f1)
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
+
         if self.optimizer == 'adam':
             optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         else:
@@ -261,6 +262,7 @@ class PrestoModule(LightningModule):
         if self.scheduler == 'lrplateau':
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                    patience=10)
+            print(optimizer, scheduler)
             return [optimizer], [{
                 "scheduler": scheduler,
                 "monitor": "val_loss"
@@ -269,24 +271,28 @@ class PrestoModule(LightningModule):
         elif self.scheduler == 'cosine':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
                                                                    T_max=10)
+            print(optimizer, scheduler)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
         elif self.scheduler == 'cosine_warmup':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 optimizer, T_0=10)
+            print(optimizer, scheduler)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
         elif self.scheduler == 'linear':
             scheduler = torch.optim.lr_scheduler.LinearLR(optimizer)
+            print(optimizer, scheduler)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
         elif self.scheduler == 'cosine_wr':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 optimizer, T_0=10)
+            print(optimizer, scheduler)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
         else:
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                         step_size=10)
-
+            print(optimizer, scheduler)
             return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
     def lr_scheduler_step(self, scheduler, metric):
