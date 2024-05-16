@@ -1,4 +1,5 @@
 import argparse
+import random
 from pathlib import Path
 
 import geopandas as gpd
@@ -15,9 +16,6 @@ def parse_args():
                         help="output file",
                         type=Path,
                         default=Path("dataset_processed.json"))
-    parser.add_argument("--pos_as_neg",
-                        help="store same number of positive and negatives",
-                        action="store_true")
 
     return parser.parse_args()
 
@@ -46,9 +44,7 @@ def main():
         pos_event_df = df[(df["event_id"] == e) & (df["class"] == 1)]
         neg_event_df = df[(df["event_id"] == e) & (df["class"] == 0)]
         pos_points = pos_event_df["point_id"].unique()
-        neg_points = neg_event_df["point_id"].unique(
-        )[:len(pos_points
-               )] if args.pos_as_neg else neg_event_df["point_id"].unique()
+        neg_points = neg_event_df["point_id"].unique()[:len(pos_points)]
         for p in pos_points:
             processed_df = processed_df.append(
                 pos_event_df[pos_event_df["point_id"] == p])
