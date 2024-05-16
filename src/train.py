@@ -60,6 +60,7 @@ def main():
             positive_weight_loss_class: {args.positive_weight_loss_class}\n\
             log_dir: {args.log_dir}\n\
             seed: {args.seed}")
+    assert args.optimizer in ["sgd", "adam"], "optimizer not supported"
 
     pl.seed_everything(args.seed)
     mask_strategies = tuple(args.mask_strategies)
@@ -88,7 +89,7 @@ def main():
     logger = TensorBoardLogger(
         args.log_dir,
         name=
-        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}_loss_lc_{args.compute_loss_lc}_lc_loss_weight_{args.lc_loss_weight}"
+        f"epochs_{args.max_epochs}_bs_{args.batch_size}_lr_{args.lr}_{args.optimizer}_{args.scheduler}_loss_lc_{args.compute_loss_lc}_lc_loss_weight_{args.lc_loss_weight}_seed_{args.seed}"
     )
 
     trainer = pl.Trainer(max_epochs=args.max_epochs,
