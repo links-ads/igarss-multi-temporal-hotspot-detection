@@ -2,4 +2,4 @@
 
 WIP
 
-Dataset: https://huggingface.co/datasets/links-ads/multitemporal-hotspot-dataset (WIP)
+Dataset: https://huggingface.co/datasets/links-ads/multi-temporal-hotspot-dataset (WIP)
