@@ -24,7 +24,7 @@ pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable
 You can launch a training with the following commands:
 
 ```console
-$ CUDA_VISIBLE_DEVICES=... python src/mthd/train.py  --catalog_file_train=... --catalog_file_val=....  --catalog_file_test=... <..args>
+$ CUDA_VISIBLE_DEVICES=... python src/train.py  --catalog_file_train=... --catalog_file_val=....  --catalog_file_test=... <..args>
 ```
 You can specify the following args:
 - batch_size
@@ -46,7 +46,7 @@ You can specify the following args:
 To produce inference maps, run something like the following:
 
 ```
-$ CUDA_VISIBLE_DEVICES=... python src/mthd/test.py --model_checkpoint <args>
+$ CUDA_VISIBLE_DEVICES=... python src/test.py --model_checkpoint <args>
 ```
 
 ## Citing this work
