@@ -1,71 +1,62 @@
-# python-template
-A simple template to bootstrap Python packages.
-It should be slightly faster than starting from scratch each time.
+# RAPID WILDFIRE HOTSPOT DETECTION USING SELF-SUPERVISED LEARNING ON TEMPORAL REMOTE SENSING DATA
+Dataset and code for the paper *RAPID WILDFIRE HOTSPOT DETECTION USING SELF-SUPERVISED LEARNING ON TEMPORAL REMOTE SENSING DATA* (IGARSS 2024).
 
-## Features
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-2306.16252-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2306.16252) -->
 
-- 🍨 **As vanilla as it gets** - Pure standard python, including `setuptools` as build tool.
-- ✏️ **One config file** - The `pyproject.toml` handles everything: dependencies, tools, versioning.
-- 🏷️ **Dynamic versioning** - The package version is dynamically set at build time, taken from `package_name.__version__`
+> [!NOTE]  
+> Dataset available at [hf.co/datasets/links-ads/spada-dataset](https://huggingface.co/datasets/links-ads/multi-temporal-hotspot-dataset).
 
-## Getting Started
+---------------
 
-To use this template, follow these steps:
-
-1. Click the "Use this template" button at the top of the repository and follow the procedure.
-
-2. Clone your new repository to your local machine:
-
-   ```bash
-   git clone https://github.com/your-username/your-repo.git
-   ```
-
-3. Navigate to the project directory. Optional but recommended: create and activate a Python virtual environment to isolate your project's dependencies.
-E.g.:
-
-   ```bash
-   cd your-repo
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows, use .venv\Scripts\activate
-   ```
-5. The template provides a simple "self-destructing" initialization script, `init.py`, that automatically provides the necessary information to generate a fully functional python package (project name, author, ...).
-From a python environment, or any other means, this script can be launched as easily as:
-
-    ```bash
-    # launch and follow the prompts
-    python init.py
-    ```
-
-6. Install the required dependencies:
-
-   ```bash
-    # Install the bare minimum, editable is usually preferred when developing
-   pip install -e .
-   # Install extras
-   pip install -e .[dev|docs|test]
-   ```
+![Architecture](/resources/Architecture.png)
 
 
-7. You're good to go! Of course, you can further customize it to your liking.
+## Installation
 
-> **Note**
->
-> The `init.py` script is self-contained and will delete itself once the procedure is completed. It is absolutely safe to delete if you prefer to edit the files manually.
+First, create a python environment. Here we used `python 3.9` and `torch 1.9`, with `CUDA 11.1`.
+We suggest creating a python environment, using `venv` or `conda` first.
 
-## Extra goodies
+```
+pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
+```
 
-If you are using VS Code as your editor of choice, you can use the following
-snippet in your `settings.json` file to format and sort imports on save.
+## Training
+You can launch a training with the following commands:
 
-```json
-{
-    "python.formatting.provider": "black",
-    "[python]": {
-        "editor.formatOnSave": true,
-        "editor.codeActionsOnSave": {
-            "source.organizeImports": true
-        },
-    },
+```console
+$ CUDA_VISIBLE_DEVICES=... python src/mthd/train.py  --catalog_file_train=... --catalog_file_val=....  --catalog_file_test=... <..args>
+```
+You can specify the following args:
+- batch_size
+- max_epochs
+- lr
+- gpus
+- log_dir
+- seed
+- optimizer
+- scheduler
+- compute_loss_lc (False if not specified)
+- positive_weight_loss_class (default 1)
+- lc_loss_weight (default 2)
+- mask_strategies (use "random_timesteps")
+- mask_ratio (default 0.75)
+
+## Inference
+
+To produce inference maps, run something like the following:
+
+```
+$ CUDA_VISIBLE_DEVICES=... python src/mthd/test.py --model_checkpoint <args>
+```
+
+## Citing this work
+```bibtex
+@inproceedings{galatola2023land,
+  title={Land Cover Segmentation with Sparse Annotations from Sentinel-2 Imagery},
+  author={Galatola, Marco and Arnaudo, Edoardo and Barco, Luca and Rossi, Claudio and Dominici, Fabrizio},
+  booktitle={IGARSS 2023-2023 IEEE International Geoscience and Remote Sensing Symposium},
+  pages={6952--6955},
+  year={2023},
+  organization={IEEE}
 }
 ```
-Of course, this is completely optional.
