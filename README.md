@@ -8,7 +8,7 @@ Dataset and code for the paper *RAPID WILDFIRE HOTSPOT DETECTION USING SELF-SUPE
 
 ---------------
 
-![Architecture](/resources/Architecture.png)
+![Architecture](/resources/Presto_igarss.drawio.png)
 
 
 ## Installation
