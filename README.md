@@ -49,14 +49,5 @@ To produce inference maps, run something like the following:
 $ CUDA_VISIBLE_DEVICES=... python src/test.py --model_checkpoint <args>
 ```
 
-## Citing this work
-```bibtex
-@inproceedings{galatola2023land,
-  title={Land Cover Segmentation with Sparse Annotations from Sentinel-2 Imagery},
-  author={Galatola, Marco and Arnaudo, Edoardo and Barco, Luca and Rossi, Claudio and Dominici, Fabrizio},
-  booktitle={IGARSS 2023-2023 IEEE International Geoscience and Remote Sensing Symposium},
-  pages={6952--6955},
-  year={2023},
-  organization={IEEE}
-}
+
 ```
