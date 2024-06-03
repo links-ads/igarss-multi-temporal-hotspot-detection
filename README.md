@@ -4,7 +4,7 @@ Dataset and code for the paper *Rapid Wildfire Hotspot Detection Using Self-Supe
 <!-- [![arXiv](https://img.shields.io/badge/arXiv-2306.16252-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2306.16252) -->
 
 > [!NOTE]  
-> Dataset available at [hf.co/datasets/links-ads/spada-dataset](https://huggingface.co/datasets/links-ads/multi-temporal-hotspot-dataset).
+> Dataset available at [hf.co/datasets/links-ads/multi-temporal-hotspot-dataset](https://huggingface.co/datasets/links-ads/multi-temporal-hotspot-dataset).
 
 ---------------
 
