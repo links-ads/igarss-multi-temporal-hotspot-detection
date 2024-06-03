@@ -1,5 +1,5 @@
 # Rapid Wildfire Hotspot Detection Using Self-Supervised Learning On Temporal Remote Sensing Data
-Dataset and code for the paper *RAPID WILDFIRE HOTSPOT DETECTION USING SELF-SUPERVISED LEARNING ON TEMPORAL REMOTE SENSING DATA* (IGARSS 2024).
+Dataset and code for the paper *Rapid Wildfire Hotspot Detection Using Self-Supervised Learning On Temporal Remote Sensing Data* (IGARSS 2024).
 
 <!-- [![arXiv](https://img.shields.io/badge/arXiv-2306.16252-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2306.16252) -->
 
