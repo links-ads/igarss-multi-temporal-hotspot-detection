@@ -49,5 +49,14 @@ To produce inference maps, run something like the following:
 $ CUDA_VISIBLE_DEVICES=... python src/test.py --model_checkpoint <args>
 ```
 
-
+## Citation
+```
+@misc{barco2024rapid,
+      title={Rapid Wildfire Hotspot Detection Using Self-Supervised Learning on Temporal Remote Sensing Data}, 
+      author={Luca Barco and Angelica Urbanelli and Claudio Rossi},
+      year={2024},
+      eprint={2405.20093},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
 ```
